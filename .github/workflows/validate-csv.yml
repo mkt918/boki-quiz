@@ -1,0 +1,65 @@
+name: Validate problems.csv
+
+on:
+  push:
+    paths:
+      - "data/problems.csv"
+  pull_request:
+    paths:
+      - "data/problems.csv"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check CSV column consistency
+        run: |
+          python3 - <<'EOF'
+          import csv
+          import sys
+
+          required = [
+              "id", "level", "difficulty", "question",
+              "debit_accounts", "debit_amounts",
+              "credit_accounts", "credit_amounts",
+              "account_pool", "explanation",
+          ]
+
+          with open("data/problems.csv", encoding="utf-8") as f:
+              reader = csv.DictReader(f)
+              missing_header = [c for c in required if c not in reader.fieldnames]
+              if missing_header:
+                  print(f"::error::Missing columns: {missing_header}")
+                  sys.exit(1)
+
+              errors = []
+              for i, row in enumerate(reader, start=2):
+                  debit_a = [x for x in row["debit_accounts"].split(";") if x.strip()]
+                  debit_m = [x for x in row["debit_amounts"].split(";") if x.strip()]
+                  credit_a = [x for x in row["credit_accounts"].split(";") if x.strip()]
+                  credit_m = [x for x in row["credit_amounts"].split(";") if x.strip()]
+
+                  if len(debit_a) != len(debit_m):
+                      errors.append(f"row {i} (id={row['id']}): debit_accounts/debit_amounts count mismatch")
+                  if len(credit_a) != len(credit_m):
+                      errors.append(f"row {i} (id={row['id']}): credit_accounts/credit_amounts count mismatch")
+
+                  for amt in debit_m + credit_m:
+                      if not amt.strip().isdigit():
+                          errors.append(f"row {i} (id={row['id']}): non-numeric amount '{amt}'")
+
+                  pool = [x for x in row["account_pool"].split("|") if x.strip()]
+                  for acc in debit_a + credit_a:
+                      if acc not in pool:
+                          errors.append(f"row {i} (id={row['id']}): '{acc}' missing from account_pool")
+
+              if errors:
+                  for e in errors:
+                      print(f"::error::{e}")
+                  sys.exit(1)
+
+          print("problems.csv OK")
+          EOF
