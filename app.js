@@ -122,16 +122,33 @@
     return Number(n).toLocaleString("ja-JP") + "円";
   }
 
+  const MIN_OPTIONS = 6;
+
   function buildAmountOptions(q) {
     const correctAmounts = [...q.debit.map((d) => d.amount), ...q.credit.map((c) => c.amount)];
     const unique = Array.from(new Set(correctAmounts));
     const distractors = new Set();
+    const step = (amt) => Math.max(1000, Math.round(amt * 0.1 / 1000) * 1000);
+
     unique.forEach((amt) => {
-      distractors.add(amt + Math.round(amt * 0.1 / 1000) * 1000 || amt + 1000);
-      distractors.add(Math.max(1000, amt - Math.round(amt * 0.1 / 1000) * 1000 || amt - 1000));
+      const s = step(amt);
+      distractors.add(amt + s);
+      distractors.add(Math.max(1000, amt - s));
     });
+
+    let multiplier = 2;
+    while (unique.length + distractors.size < MIN_OPTIONS && multiplier < 10) {
+      unique.forEach((amt) => {
+        const s = step(amt) * multiplier;
+        distractors.add(amt + s);
+        distractors.add(Math.max(1000, amt - s));
+      });
+      multiplier++;
+    }
+
     unique.forEach((a) => distractors.delete(a));
-    const distractorList = shuffle(Array.from(distractors)).slice(0, 3);
+    const needed = Math.max(0, MIN_OPTIONS - unique.length);
+    const distractorList = shuffle(Array.from(distractors)).slice(0, Math.max(needed, 3));
     return shuffle([...unique, ...distractorList]);
   }
 
