@@ -9,82 +9,114 @@
 <body>
 <header class="app-header">
   <h1>簿記仕訳トレーニング</h1>
-  <div class="header-controls">
-    <label class="control">
-      級
-      <select id="levelSelect">
-        <option value="all">すべて</option>
-        <option value="3級">3級</option>
-        <option value="2級">2級</option>
-      </select>
-    </label>
-    <label class="control">
-      難易度
-      <select id="difficultySelect">
-        <option value="all">すべて</option>
-        <option value="初級">初級</option>
-        <option value="中級">中級</option>
-        <option value="上級">上級</option>
-      </select>
-    </label>
-  </div>
+  <button type="button" id="backToStartBtn" class="btn btn-ghost" hidden>設定に戻る</button>
 </header>
 
 <main class="app-main">
-  <section class="progress-bar-wrap" aria-label="進捗">
-    <div class="progress-info">
-      <span id="progressText">問題 1 / 1</span>
-      <span id="scoreText">正解 0</span>
-    </div>
-    <div class="progress-track">
-      <div id="progressFill" class="progress-fill"></div>
-    </div>
-  </section>
+  <section id="startScreen" class="card start-card">
+    <h2 class="start-title">受験級とモードを選んで始めましょう</h2>
 
-  <section id="questionCard" class="card question-card">
-    <div class="question-meta">
-      <span id="questionLevel" class="badge badge-level"></span>
-      <span id="questionDifficulty" class="badge badge-difficulty"></span>
-    </div>
-    <p id="questionText" class="question-text">読み込み中...</p>
-  </section>
-
-  <section class="card answer-card">
-    <div class="answer-columns">
-      <div class="answer-column" data-side="debit">
-        <h2 class="answer-column-title">借方<span class="hint">(かりかた)</span></h2>
-        <div class="entry-list" id="debitEntries"></div>
-        <button type="button" class="add-line-btn" id="addDebitLine">＋ 行を追加</button>
-      </div>
-      <div class="answer-column" data-side="credit">
-        <h2 class="answer-column-title">貸方<span class="hint">(かしかた)</span></h2>
-        <div class="entry-list" id="creditEntries"></div>
-        <button type="button" class="add-line-btn" id="addCreditLine">＋ 行を追加</button>
+    <div class="start-group">
+      <h3 class="start-group-title">受験級</h3>
+      <div class="option-tiles" id="levelTiles">
+        <button type="button" class="option-tile is-selected" data-value="all">すべて</button>
+        <button type="button" class="option-tile" data-value="3級">3級</button>
+        <button type="button" class="option-tile" data-value="2級">2級</button>
       </div>
     </div>
 
-    <div class="account-pool-wrap">
-      <h3 class="pool-title">1. 勘定科目を選択 <span class="hint">クリックまたはドラッグで空いている枠に配置</span></h3>
-      <div id="accountPool" class="account-pool"></div>
+    <div class="start-group">
+      <h3 class="start-group-title">難易度</h3>
+      <div class="option-tiles" id="difficultyTiles">
+        <button type="button" class="option-tile is-selected" data-value="all">すべて</button>
+        <button type="button" class="option-tile" data-value="初級">初級</button>
+        <button type="button" class="option-tile" data-value="中級">中級</button>
+        <button type="button" class="option-tile" data-value="上級">上級</button>
+      </div>
     </div>
 
-    <div class="account-pool-wrap">
-      <h3 class="pool-title">2. 金額を選択 <span class="hint">クリックまたはドラッグで空いている枠に配置</span></h3>
-      <div id="amountPool" class="account-pool"></div>
+    <div class="start-group">
+      <h3 class="start-group-title">モード</h3>
+      <div class="mode-cards" id="modeCards">
+        <button type="button" class="mode-card is-selected" data-value="normal">
+          <span class="mode-card-title">通常モード</span>
+          <span class="mode-card-desc">条件に合う問題を一通り出題します。</span>
+        </button>
+        <button type="button" class="mode-card" data-value="weak">
+          <span class="mode-card-title">苦手克服モード</span>
+          <span class="mode-card-desc">これまで間違えた問題だけを出題します。</span>
+        </button>
+        <button type="button" class="mode-card" data-value="endless">
+          <span class="mode-card-title">エンドレスモード</span>
+          <span class="mode-card-desc">終わりなく問題を出題し続けます。</span>
+        </button>
+      </div>
     </div>
+
+    <p id="startMessage" class="start-message" hidden></p>
 
     <div class="action-row">
-      <button type="button" id="resetBtn" class="btn btn-ghost">やり直す</button>
-      <button type="button" id="submitBtn" class="btn btn-primary">解答する</button>
-      <button type="button" id="nextBtn" class="btn btn-primary" hidden>次の問題へ</button>
-    </div>
-
-    <div id="resultBox" class="result-box" hidden>
-      <p id="resultMessage" class="result-message"></p>
-      <div id="correctAnswerBox" class="correct-answer-box"></div>
-      <p id="explanationText" class="explanation-text"></p>
+      <button type="button" id="startBtn" class="btn btn-primary">はじめる</button>
     </div>
   </section>
+
+  <div id="quizScreen" hidden>
+    <section class="progress-bar-wrap" aria-label="進捗">
+      <div class="progress-info">
+        <span id="progressText">問題 1 / 1</span>
+        <span id="scoreText">正解 0</span>
+      </div>
+      <div class="progress-track">
+        <div id="progressFill" class="progress-fill"></div>
+      </div>
+    </section>
+
+    <section id="questionCard" class="card question-card">
+      <div class="question-meta">
+        <span id="questionLevel" class="badge badge-level"></span>
+        <span id="questionDifficulty" class="badge badge-difficulty"></span>
+        <span id="questionMode" class="badge badge-mode"></span>
+      </div>
+      <p id="questionText" class="question-text">読み込み中...</p>
+    </section>
+
+    <section class="card answer-card">
+      <div class="answer-columns">
+        <div class="answer-column" data-side="debit">
+          <h2 class="answer-column-title">借方<span class="hint">(かりかた)</span></h2>
+          <div class="entry-list" id="debitEntries"></div>
+          <button type="button" class="add-line-btn" id="addDebitLine">＋ 行を追加</button>
+        </div>
+        <div class="answer-column" data-side="credit">
+          <h2 class="answer-column-title">貸方<span class="hint">(かしかた)</span></h2>
+          <div class="entry-list" id="creditEntries"></div>
+          <button type="button" class="add-line-btn" id="addCreditLine">＋ 行を追加</button>
+        </div>
+      </div>
+
+      <div class="account-pool-wrap">
+        <h3 class="pool-title">1. 勘定科目を選択 <span class="hint">クリックまたはドラッグで空いている枠に配置</span></h3>
+        <div id="accountPool" class="account-pool"></div>
+      </div>
+
+      <div class="account-pool-wrap">
+        <h3 class="pool-title">2. 金額を選択 <span class="hint">クリックまたはドラッグで空いている枠に配置</span></h3>
+        <div id="amountPool" class="account-pool"></div>
+      </div>
+
+      <div class="action-row">
+        <button type="button" id="resetBtn" class="btn btn-ghost">やり直す</button>
+        <button type="button" id="submitBtn" class="btn btn-primary">解答する</button>
+        <button type="button" id="nextBtn" class="btn btn-primary" hidden>次の問題へ</button>
+      </div>
+
+      <div id="resultBox" class="result-box" hidden>
+        <p id="resultMessage" class="result-message"></p>
+        <div id="correctAnswerBox" class="correct-answer-box"></div>
+        <p id="explanationText" class="explanation-text"></p>
+      </div>
+    </section>
+  </div>
 </main>
 
 <script src="app.js"></script>

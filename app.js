@@ -2,27 +2,41 @@
   "use strict";
 
   const CSV_PATH = "data/problems.csv";
+  const STATS_KEY = "boki-quiz-stats-v1";
+  const MIN_OPTIONS = 6;
 
   const state = {
     all: [],
     pool: [],
     index: 0,
     correctCount: 0,
+    answeredCount: 0,
     answered: false,
     entries: { debit: [], credit: [] },
     accountOptions: [],
     amountOptions: [],
     selectedSlot: null, // { side: 'debit'|'credit', line: number, kind: 'account'|'amount' }
+    level: "all",
+    difficulty: "all",
+    mode: "normal", // 'normal' | 'weak' | 'endless'
+    stats: {},
   };
 
   const el = {
-    levelSelect: document.getElementById("levelSelect"),
-    difficultySelect: document.getElementById("difficultySelect"),
+    startScreen: document.getElementById("startScreen"),
+    quizScreen: document.getElementById("quizScreen"),
+    backToStartBtn: document.getElementById("backToStartBtn"),
+    levelTiles: document.getElementById("levelTiles"),
+    difficultyTiles: document.getElementById("difficultyTiles"),
+    modeCards: document.getElementById("modeCards"),
+    startBtn: document.getElementById("startBtn"),
+    startMessage: document.getElementById("startMessage"),
     progressText: document.getElementById("progressText"),
     scoreText: document.getElementById("scoreText"),
     progressFill: document.getElementById("progressFill"),
     questionLevel: document.getElementById("questionLevel"),
     questionDifficulty: document.getElementById("questionDifficulty"),
+    questionMode: document.getElementById("questionMode"),
     questionText: document.getElementById("questionText"),
     debitEntries: document.getElementById("debitEntries"),
     creditEntries: document.getElementById("creditEntries"),
@@ -108,6 +122,34 @@
     return out;
   }
 
+  // ---------- stats (weak-point tracking) persisted in localStorage ----------
+  function loadStats() {
+    try {
+      const raw = localStorage.getItem(STATS_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveStats() {
+    try {
+      localStorage.setItem(STATS_KEY, JSON.stringify(state.stats));
+    } catch (e) { /* ignore quota / privacy-mode errors */ }
+  }
+
+  function recordResult(id, correct) {
+    const s = state.stats[id] || { wrong: 0, correct: 0 };
+    if (correct) s.correct++; else s.wrong++;
+    state.stats[id] = s;
+    saveStats();
+  }
+
+  function isWeak(q) {
+    const s = state.stats[q.id];
+    return !!s && s.wrong > s.correct;
+  }
+
   // ---------- helpers ----------
   function shuffle(arr) {
     const a = arr.slice();
@@ -121,8 +163,6 @@
   function formatYen(n) {
     return Number(n).toLocaleString("ja-JP") + "円";
   }
-
-  const MIN_OPTIONS = 6;
 
   function buildAmountOptions(q) {
     const correctAmounts = [...q.debit.map((d) => d.amount), ...q.credit.map((c) => c.amount)];
@@ -152,34 +192,81 @@
     return shuffle([...unique, ...distractorList]);
   }
 
-  // ---------- filtering ----------
-  function applyFilters() {
-    const level = el.levelSelect.value;
-    const difficulty = el.difficultySelect.value;
-    state.pool = shuffle(state.all.filter((q) =>
-      (level === "all" || q.level === level) &&
-      (difficulty === "all" || q.difficulty === difficulty)
-    ));
-    state.index = 0;
-    state.correctCount = 0;
-    if (state.pool.length === 0) {
-      el.questionText.textContent = "条件に合う問題がありません。";
-      el.debitEntries.innerHTML = "";
-      el.creditEntries.innerHTML = "";
-      el.accountPool.innerHTML = "";
-      el.amountPool.innerHTML = "";
-      updateProgress();
+  // ---------- start screen ----------
+  function setupTileGroup(container, onChange) {
+    container.addEventListener("click", (e) => {
+      const btn = e.target.closest(".option-tile, .mode-card");
+      if (!btn || !container.contains(btn)) return;
+      container.querySelectorAll(".option-tile, .mode-card").forEach((b) => b.classList.remove("is-selected"));
+      btn.classList.add("is-selected");
+      onChange(btn.dataset.value);
+    });
+  }
+
+  setupTileGroup(el.levelTiles, (v) => { state.level = v; });
+  setupTileGroup(el.difficultyTiles, (v) => { state.difficulty = v; });
+  setupTileGroup(el.modeCards, (v) => { state.mode = v; });
+
+  function buildPoolForCurrentSettings() {
+    let candidates = state.all.filter((q) =>
+      (state.level === "all" || q.level === state.level) &&
+      (state.difficulty === "all" || q.difficulty === state.difficulty)
+    );
+    if (state.mode === "weak") {
+      candidates = candidates.filter(isWeak);
+    }
+    return shuffle(candidates);
+  }
+
+  function startQuiz() {
+    const pool = buildPoolForCurrentSettings();
+    if (pool.length === 0) {
+      el.startMessage.hidden = false;
+      el.startMessage.textContent = state.mode === "weak"
+        ? "この条件で苦手な問題はありません。他のモードや条件を試してください。"
+        : "条件に合う問題がありません。条件を変えてください。";
       return;
     }
+    el.startMessage.hidden = true;
+    state.pool = pool;
+    state.index = 0;
+    state.correctCount = 0;
+    state.answeredCount = 0;
+
+    el.startScreen.hidden = true;
+    el.quizScreen.hidden = false;
+    el.backToStartBtn.hidden = false;
+
     loadCurrentQuestion();
   }
 
+  function backToStart() {
+    el.quizScreen.hidden = true;
+    el.startScreen.hidden = false;
+    el.backToStartBtn.hidden = true;
+    el.startMessage.hidden = true;
+  }
+
+  el.startBtn.addEventListener("click", startQuiz);
+  el.backToStartBtn.addEventListener("click", backToStart);
+
+  function modeLabel() {
+    if (state.mode === "weak") return "苦手克服";
+    if (state.mode === "endless") return "エンドレス";
+    return "通常";
+  }
+
   function updateProgress() {
-    const total = state.pool.length;
-    const current = total ? state.index + 1 : 0;
-    el.progressText.textContent = `問題 ${current} / ${total}`;
+    if (state.mode === "endless") {
+      el.progressText.textContent = `${state.answeredCount + 1}問目(エンドレス)`;
+      el.progressFill.style.width = "100%";
+    } else {
+      const total = state.pool.length;
+      const current = total ? state.index + 1 : 0;
+      el.progressText.textContent = `問題 ${current} / ${total}`;
+      el.progressFill.style.width = total ? `${(state.index / total) * 100}%` : "0%";
+    }
     el.scoreText.textContent = `正解 ${state.correctCount}`;
-    el.progressFill.style.width = total ? `${(state.index / total) * 100}%` : "0%";
   }
 
   // ---------- question rendering ----------
@@ -196,6 +283,7 @@
 
     el.questionLevel.textContent = q.level;
     el.questionDifficulty.textContent = q.difficulty;
+    el.questionMode.textContent = modeLabel();
     el.questionText.textContent = q.question;
 
     el.resultBox.hidden = true;
@@ -404,7 +492,9 @@
     const q = state.pool[state.index];
     const correct = checkAnswer();
     state.answered = true;
+    state.answeredCount++;
     if (correct) state.correctCount++;
+    recordResult(q.id, correct);
 
     el.resultBox.hidden = false;
     el.resultBox.className = "result-box " + (correct ? "correct" : "wrong");
@@ -422,20 +512,51 @@
     renderEntries();
   }
 
+  function finishSession(message) {
+    el.questionText.textContent = message;
+    el.debitEntries.innerHTML = "";
+    el.creditEntries.innerHTML = "";
+    el.accountPool.innerHTML = "";
+    el.amountPool.innerHTML = "";
+    el.resultBox.hidden = true;
+    el.nextBtn.hidden = true;
+    el.submitBtn.hidden = true;
+  }
+
   function goNext() {
+    if (state.mode === "endless") {
+      state.index++;
+      if (state.index >= state.pool.length) {
+        state.pool = shuffle(buildPoolForCurrentSettings());
+        state.index = 0;
+      }
+      if (state.pool.length === 0) {
+        finishSession("出題できる問題がありません。設定に戻って条件を変更してください。");
+        return;
+      }
+      loadCurrentQuestion();
+      return;
+    }
+
+    if (state.mode === "weak") {
+      // Re-evaluate the weak pool each time so questions just answered
+      // correctly drop out, keeping the session focused on real weak points.
+      const remaining = shuffle(buildPoolForCurrentSettings());
+      if (remaining.length === 0) {
+        finishSession("苦手な問題をすべて克服しました！お疲れさまでした。");
+        return;
+      }
+      state.pool = remaining;
+      state.index = 0;
+      loadCurrentQuestion();
+      return;
+    }
+
     if (state.index < state.pool.length - 1) {
       state.index++;
       loadCurrentQuestion();
     } else {
-      el.questionText.textContent = "すべての問題が終了しました。お疲れさまでした！";
-      el.debitEntries.innerHTML = "";
-      el.creditEntries.innerHTML = "";
-      el.accountPool.innerHTML = "";
-      el.amountPool.innerHTML = "";
-      el.resultBox.hidden = true;
-      el.nextBtn.hidden = true;
-      el.submitBtn.hidden = true;
-      updateProgress();
+      finishSession("すべての問題が終了しました。お疲れさまでした！");
     }
   }
 
@@ -450,8 +571,6 @@
   }
 
   // ---------- events ----------
-  el.levelSelect.addEventListener("change", applyFilters);
-  el.difficultySelect.addEventListener("change", applyFilters);
   el.addDebitLine.addEventListener("click", () => {
     if (state.answered) return;
     state.entries.debit.push({ account: null, amount: null });
@@ -469,10 +588,11 @@
   // ---------- init ----------
   (async function init() {
     try {
+      state.stats = loadStats();
       state.all = await loadQuestions();
-      applyFilters();
     } catch (err) {
-      el.questionText.textContent = "問題データの読み込みに失敗しました。ローカルサーバー経由で開いていますか？";
+      el.startMessage.hidden = false;
+      el.startMessage.textContent = "問題データの読み込みに失敗しました。ローカルサーバー経由で開いていますか？";
       console.error(err);
     }
   })();
