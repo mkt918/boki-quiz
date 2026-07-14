@@ -170,8 +170,8 @@
     const q = state.pool[state.index];
     state.answered = false;
     state.entries = {
-      debit: [{ account: null, amount: null }],
-      credit: [{ account: null, amount: null }],
+      debit: [{ account: null, amount: null }, { account: null, amount: null }],
+      credit: [{ account: null, amount: null }, { account: null, amount: null }],
     };
     state.selectedSlot = null;
     state.accountOptions = shuffle(q.accountPool);
@@ -384,13 +384,6 @@
   }
 
   function submitAnswer() {
-    const anyEmpty = [...state.entries.debit, ...state.entries.credit].some(
-      (l) => l.account === null || l.amount === null
-    );
-    if (anyEmpty) {
-      alert("すべての枠に勘定科目と金額を選択してください。");
-      return;
-    }
     const q = state.pool[state.index];
     const correct = checkAnswer();
     state.answered = true;
@@ -432,8 +425,8 @@
   function resetCurrent() {
     if (state.answered) return;
     state.entries = {
-      debit: [{ account: null, amount: null }],
-      credit: [{ account: null, amount: null }],
+      debit: [{ account: null, amount: null }, { account: null, amount: null }],
+      credit: [{ account: null, amount: null }, { account: null, amount: null }],
     };
     state.selectedSlot = null;
     renderEntries();
