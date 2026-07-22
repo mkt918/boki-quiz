@@ -300,6 +300,13 @@
   function renderEntries() {
     renderSide("debit", el.debitEntries);
     renderSide("credit", el.creditEntries);
+    if (state.selectedSlot) {
+      const { side, line, kind } = state.selectedSlot;
+      const container = side === "debit" ? el.debitEntries : el.creditEntries;
+      const row = container.children[line];
+      const slotEl = row && row.querySelector(kind === "account" ? ".account-slot" : ".amount-slot-wrap");
+      if (slotEl) slotEl.focus();
+    }
   }
 
   function renderSide(side, container) {
@@ -381,6 +388,13 @@
 
   function addSlotHandlers(slotEl, side, line, kind) {
     slotEl.addEventListener("click", () => {
+      if (state.answered) return;
+      state.selectedSlot = { side, line, kind };
+      renderEntries();
+    });
+    slotEl.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
       if (state.answered) return;
       state.selectedSlot = { side, line, kind };
       renderEntries();

@@ -51,6 +51,15 @@ jobs:
                       if not amt.strip().isdigit():
                           errors.append(f"row {i} (id={row['id']}): non-numeric amount '{amt}'")
 
+                  if all(amt.strip().isdigit() for amt in debit_m + credit_m):
+                      debit_total = sum(int(x) for x in debit_m)
+                      credit_total = sum(int(x) for x in credit_m)
+                      if debit_total != credit_total:
+                          errors.append(
+                              f"row {i} (id={row['id']}): debit total {debit_total} "
+                              f"!= credit total {credit_total}"
+                          )
+
                   pool = [x for x in row["account_pool"].split("|") if x.strip()]
                   for acc in debit_a + credit_a:
                       if acc not in pool:
